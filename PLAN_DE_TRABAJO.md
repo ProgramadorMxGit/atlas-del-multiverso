@@ -23,7 +23,10 @@ Estimación de desarrollo para una persona. Las horas representan esfuerzo previ
 5. Se prepararon el emblema de lanzamiento y los recursos para Android 12 y versiones anteriores. El cambio de lista a detalle reutiliza la imagen con una transición Hero.
 6. Se añadieron pruebas de acceso, guardado y aislamiento con SQLite. Se verificó una consulta real de la API. Durante el empaquetado se agotó el espacio del volumen de trabajo y se trasladaron los archivos de compilación a otro volumen.
 
+7. Se añadió la recuperación de retratos pendientes por investigador y se verificó la ficha en una vista de 390 × 844. El análisis estático terminó sin incidencias y pasaron las cinco pruebas automatizadas. Se compiló el APK de release y se verificaron su firma y su identificador de paquete.
+
 ## Alcance de validación
 
 La demostración de identidad usa el número introducido. La validación por SMS, el respaldo entre dispositivos y la publicación en tiendas quedan fuera del alcance del reto. La medición de fluidez y arranque en hardware físico requiere una ejecución en modo profile en el dispositivo objetivo.
+
 
