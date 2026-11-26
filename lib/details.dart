@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'appearance.dart';
 import 'atlas_data.dart';
+import 'motion.dart';
 
 class Portrait extends StatelessWidget {
   const Portrait({
@@ -33,6 +34,22 @@ class Portrait extends StatelessWidget {
               : Image.memory(
                   data,
                   fit: BoxFit.cover,
+                  frameBuilder: (context, child, frame, sync) {
+                    if (sync || MediaQuery.disableAnimationsOf(context)) {
+                      return child;
+                    }
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        blank,
+                        AnimatedOpacity(
+                          opacity: frame == null ? 0 : 1,
+                          duration: const Duration(milliseconds: 160),
+                          child: child,
+                        ),
+                      ],
+                    );
+                  },
                   cacheWidth: 300,
                   errorBuilder: (_, __, ___) => blank,
                 );
@@ -77,12 +94,14 @@ class _DetailsState extends State<Details> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              p.name,
-              style: const TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -1,
+            Entrance(
+              child: Text(
+                p.name,
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -1,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -108,32 +127,57 @@ class _DetailsState extends State<Details> {
                         if (mounted) setState(() => busy = false);
                       }
                     },
-              icon: Icon(kept ? Icons.bookmark : Icons.bookmark_add_outlined),
+              icon: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 170),
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: Icon(
+                  kept ? Icons.bookmark : Icons.bookmark_add_outlined,
+                  key: ValueKey(kept),
+                ),
+              ),
               label: Text(
                 kept ? 'Quitar de guardados' : 'Guardar en mi cuaderno',
               ),
             ),
             const SizedBox(height: 18),
-            for (final field in {
-              'Estado': p.status,
-              'Especie': p.species,
-              'Origen': p.data['origin']['name'],
-              'Ubicación': p.data['location']['name'],
-              'Género': p.data['gender'],
-              if ((p.data['type'] as String).isNotEmpty) 'Tipo': p.data['type'],
-            }.entries)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  field.key,
-                  style: const TextStyle(color: muted, fontSize: 13),
-                ),
-                subtitle: Text(
-                  field.value.toString(),
-                  style: const TextStyle(fontSize: 18),
+            Entrance(
+              start: .2,
+              child: Material(
+                color: panel,
+                borderRadius: BorderRadius.circular(18),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                  child: Column(
+                    children: [
+                      for (final field in {
+                        'Estado': p.status,
+                        'Especie': p.species,
+                        'Origen': p.data['origin']['name'],
+                        'Ubicación': p.data['location']['name'],
+                        'Género': p.data['gender'],
+                        if ((p.data['type'] as String).isNotEmpty)
+                          'Tipo': p.data['type'],
+                      }.entries)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            field.key,
+                            style: const TextStyle(color: muted, fontSize: 13),
+                          ),
+                          subtitle: Text(
+                            field.value.toString(),
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            const Divider(),
+            ),
+            const SizedBox(height: 24),
             Text(
               'Episodios · ${p.episodes.length}',
               style: Theme.of(context).textTheme.titleLarge,

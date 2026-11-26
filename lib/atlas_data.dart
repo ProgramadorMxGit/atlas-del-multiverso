@@ -4,12 +4,8 @@ import 'dart:typed_data';
 
 import 'package:sqflite/sqflite.dart';
 
-String? phoneKey(String raw) {
-  final value = raw.trim().replaceAll(RegExp(r'[ ()-]'), '');
-  return RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(value)
-      ? value.replaceFirst('+', '')
-      : null;
-}
+import 'mexico_phone.dart';
+export 'mexico_phone.dart' show phoneKey;
 
 class Specimen {
   const Specimen(this.data);
@@ -89,7 +85,14 @@ class Notebook {
 
   static Future<Notebook> open() async {
     final path = '${await getDatabasesPath()}/atlas.sqlite';
-    return Notebook(await openDatabase(path, version: 1, onCreate: schema));
+    return Notebook(
+      await openDatabase(
+        path,
+        version: 2,
+        onCreate: schema,
+        onUpgrade: upgrade,
+      ),
+    );
   }
 
   static Future<void> schema(Database db, int _) async {
@@ -104,12 +107,54 @@ class Notebook {
     );
   }
 
+  static Future<void> upgrade(Database db, int from, int to) async {
+    if (from >= 2) return;
+    final session = await db.query('session');
+    final active = session.firstOrNull?['phone'];
+    final workspaces = await db.query('workspace');
+    for (final workspace in workspaces) {
+      final old = workspace['phone'] as String;
+      final key = phoneKey(old);
+      if (key == null || key == old) continue;
+      await db.insert(
+        'workspace',
+        {...workspace, 'phone': key},
+        conflictAlgorithm: old == active
+            ? ConflictAlgorithm.replace
+            : ConflictAlgorithm.ignore,
+      );
+      // Dos cuadernos antiguos pueden compartir la ficha y solo uno tener el retrato.
+      await db.rawInsert(
+        'INSERT OR IGNORE INTO saved(phone,id,payload,portrait) '
+        'SELECT ?,id,payload,portrait FROM saved WHERE phone=? ORDER BY rowid',
+        [key, old],
+      );
+      await db.rawUpdate(
+        'UPDATE saved SET portrait=(SELECT alias.portrait FROM saved AS alias '
+        'WHERE alias.phone=? AND alias.id=saved.id) WHERE phone=? AND portrait IS NULL',
+        [old, key],
+      );
+      await db.delete('saved', where: 'phone=?', whereArgs: [old]);
+      await db.delete('workspace', where: 'phone=?', whereArgs: [old]);
+    }
+    if (active is String) {
+      final key = phoneKey(active);
+      if (key == null) {
+        await db.delete('session');
+      } else {
+        await db.update('session', {'phone': key});
+      }
+    }
+  }
+
   Future<String?> active() async {
     final rows = await db.query('session');
     return rows.isEmpty ? null : rows.first['phone'] as String;
   }
 
-  Future<void> enter(String phone) => db.transaction((txn) async {
+  Future<void> enter(String input) => db.transaction((txn) async {
+    final phone = phoneKey(input);
+    if (phone == null) throw const FormatException("Celular mexicano inválido");
     await txn.insert('workspace', {
       'phone': phone,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);

@@ -27,7 +27,7 @@ void main() {
     await tester.tap(find.text('Abrir cuaderno'));
     await tester.pump();
     expect(received, isNull);
-    expect(find.textContaining('8 y 15'), findsOneWidget);
+    expect(find.textContaining('10 dígitos de'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '+52 833 123 4567');
     await tester.tap(find.text('Abrir cuaderno'));
     expect(received, '528331234567');

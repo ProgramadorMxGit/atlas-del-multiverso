@@ -25,8 +25,12 @@ Estimación de desarrollo para una persona. Las horas representan esfuerzo previ
 
 7. Se añadió la recuperación de retratos pendientes por investigador y se verificó la ficha en una vista de 390 × 844. El análisis estático terminó sin incidencias y pasaron las cinco pruebas automatizadas. Se compiló el APK de release y se verificaron su firma y su identificador de paquete.
 
+8. La versión 1.1 identifica cada celular mexicano por una sola clave. La migración combina los guardados existentes y conserva las imágenes que ya estaban disponibles sin conexión.
+9. El arranque lee la base mientras se presenta el emblema. El catálogo pasó a una cuadrícula con retratos grandes y columnas que se adaptan al ancho y al tamaño del texto. Un controlador da entrada a las primeras tarjetas con 32 ms de separación.
+10. Se incorporó el aviso de conexión de Android para retomar una página interrumpida y las descargas pendientes. Las pruebas reproducen la llegada tardía de resultados de búsqueda, un doble toque sobre una ficha y una descarga que termina después de cambiar de cuaderno.
+
 ## Alcance de validación
 
-La demostración de identidad usa el número introducido. La validación por SMS, el respaldo entre dispositivos y la publicación en tiendas quedan fuera del alcance del reto. La medición de fluidez y arranque en hardware físico requiere una ejecución en modo profile en el dispositivo objetivo.
+La demostración de identidad usa el número introducido. La validación por SMS, el respaldo entre dispositivos y la publicación en tiendas quedan fuera del alcance del reto. En la versión 1.1 pasaron 16 pruebas y el análisis estático terminó sin incidencias. Se revisaron fotogramas del arranque y del catálogo a 390 × 844, además de una prueba de interfaz a 320 px con el texto al doble. Queda pendiente medir los tiempos por fotograma y el arranque en modo profile sobre un dispositivo Android físico.
 
 

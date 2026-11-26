@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'appearance.dart';
 import 'atlas_data.dart';
 import 'entry.dart';
+import 'motion.dart';
 import 'field_desk.dart';
 
 void main() {
@@ -28,7 +29,8 @@ class Atlas extends StatelessWidget {
 }
 
 class Gate extends StatefulWidget {
-  const Gate({super.key});
+  const Gate({super.key, this.openBook = Notebook.open});
+  final Future<Notebook> Function() openBook;
   @override
   State<Gate> createState() => _GateState();
 }
@@ -36,7 +38,7 @@ class Gate extends StatefulWidget {
 class _GateState extends State<Gate> {
   Notebook? store;
   String? phone;
-  bool failed = false;
+  bool failed = false, introFinished = false;
   @override
   void initState() {
     super.initState();
@@ -45,7 +47,7 @@ class _GateState extends State<Gate> {
 
   Future<void> boot() async {
     try {
-      final book = await Notebook.open();
+      final book = await widget.openBook();
       final current = await book.active();
       if (mounted) {
         setState(() {
@@ -60,15 +62,26 @@ class _GateState extends State<Gate> {
 
   @override
   Widget build(BuildContext context) {
-    if (store == null) {
+    if (!introFinished || store == null && !failed) {
+      return transition(
+        LaunchCover(
+          emblem: const Mark(size: 86),
+          onFinished: () {
+            if (!introFinished) setState(() => introFinished = true);
+          },
+        ),
+      );
+    }
+    if (failed) {
       return Scaffold(
         body: Center(
-          child: failed
-              ? TextButton(
-                  onPressed: boot,
-                  child: const Text('Reintentar apertura del cuaderno'),
-                )
-              : const Mark(size: 84),
+          child: TextButton(
+            onPressed: () {
+              setState(() => failed = false);
+              boot();
+            },
+            child: const Text('Reintentar apertura del cuaderno'),
+          ),
         ),
       );
     }
@@ -88,18 +101,19 @@ class _GateState extends State<Gate> {
               if (mounted) setState(() => phone = null);
             },
           );
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(phone),
-      tween: Tween(begin: 0, end: 1),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      child: screen,
-      builder: (_, value, child) => Transform.translate(
-        offset: Offset(0, 8 * (1 - value)),
-        child: Opacity(opacity: 0.75 + 0.25 * value, child: child),
-      ),
-    );
+    return transition(KeyedSubtree(key: const ValueKey('app'), child: screen));
   }
+
+  Widget transition(Widget child) => AnimatedSwitcher(
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 240),
+    switchInCurve: Curves.easeOut,
+    switchOutCurve: Curves.easeIn,
+    layoutBuilder: (current, previous) => Stack(
+      fit: StackFit.expand,
+      children: [...previous, if (current != null) current],
+    ),
+    child: child,
+  );
 }
