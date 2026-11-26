@@ -2,6 +2,8 @@
 
 Cuaderno de campo para buscar personajes de Rick and Morty y consultar fichas guardadas durante una expedición. Cada número de celular tiene su propia colección en el dispositivo.
 
+<img src="docs/ficha.png" width="260" alt="Ficha de Rick Sanchez con el botón para guardarlo en el cuaderno">
+
 ## Probar la aplicación
 
 1. Abre Atlas e introduce un celular con código de país, por ejemplo `+52 833 123 4567`. El acceso es una simulación local. Cualquier persona que conozca el número puede abrir ese cuaderno.
@@ -31,6 +33,8 @@ Flutter deja el APK en `build/app/outputs/flutter-apk/app-release.apk`. El paque
 - **Continuidad.** Se conserva la última búsqueda, pestaña y ficha abierta de cada investigador. Borrar los datos de Android elimina las sesiones y las colecciones locales.
 - **Interfaz.** Android muestra el emblema durante el arranque. Flutter abre la sesión en cuanto termina la lectura local. La lista crea tarjetas bajo demanda y comparte el retrato con la transición a la ficha.
 
+Las fichas sin retrato forman una cola local de descargas pendientes. Una consulta exitosa reactiva la lectura en lotes de ocho y descarga una imagen por turno. La selección del investigador queda confirmada antes de descargarla.
+
 ## Organización
 
 `lib/atlas_data.dart` contiene el cliente HTTP, el modelo de personaje y las operaciones SQLite. `main.dart` recupera la sesión. `entry.dart`, `field_desk.dart` y `details.dart` contienen acceso, catálogo y ficha. El emblema y los colores compartidos están en `appearance.dart`.
@@ -40,4 +44,5 @@ Las pruebas de SQLite cierran y vuelven a abrir la base para verificar persisten
 ## Referencias
 
 [Contrato de la API pública](https://rickandmortyapi.com/documentation) · [Persistencia y recuperación offline en Flutter](https://docs.flutter.dev/app-architecture/design-patterns/offline-first) · [Pantalla de lanzamiento de Android](https://docs.flutter.dev/platform-integration/android/splash-screen)
+
 

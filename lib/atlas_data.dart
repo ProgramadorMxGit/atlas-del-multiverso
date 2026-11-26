@@ -154,6 +154,20 @@ class Notebook {
     orderBy: 'rowid DESC',
   )).map((r) => Specimen(jsonDecode(r['payload'] as String))).toList();
 
+  Future<List<Specimen>> missingPortraits(String phone, int afterId) async {
+    final rows = await db.query(
+      'saved',
+      columns: ['payload'],
+      where: 'phone=? AND portrait IS NULL AND id>?',
+      whereArgs: [phone, afterId],
+      orderBy: 'id',
+      limit: 8,
+    );
+    return rows
+        .map((row) => Specimen(jsonDecode(row['payload'] as String)))
+        .toList();
+  }
+
   Future<void> keep(String phone, Specimen person, Uint8List? image) async {
     await db.insert('saved', {
       'phone': phone,

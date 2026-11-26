@@ -26,6 +26,8 @@ void main() {
       const person = Specimen({'id': 1, 'name': 'Rick'});
       await book.enter(first);
       await book.keep(first, person, null);
+      expect((await book.missingPortraits(first, 0)).single.id, 1);
+      expect(await book.missingPortraits(second, 0), isEmpty);
       await book.attach(first, 1, Uint8List.fromList([1, 2, 3]));
       await book.keep(first, person, null);
       await book.remember(first, 1, 'rick');
@@ -35,6 +37,7 @@ void main() {
       expect(await book.active(), first);
       expect((await book.saved(first)).single.name, 'Rick');
       expect(await book.photo(first, 1), [1, 2, 3]);
+      expect(await book.missingPortraits(first, 0), isEmpty);
       expect((await book.state(first))['query'], 'rick');
       expect((await book.state(first))['last_detail'], contains('Rick'));
       await book.leave();

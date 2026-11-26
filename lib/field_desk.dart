@@ -31,6 +31,8 @@ class _DeskState extends State<FieldDesk> with WidgetsBindingObserver {
       ready = false,
       localError = false;
   Timer? timer;
+  bool restoringPortraits = false;
+  int portraitCursor = 0;
   @override
   void initState() {
     super.initState();
@@ -112,6 +114,7 @@ class _DeskState extends State<FieldDesk> with WidgetsBindingObserver {
         more = batch.more;
         loading = false;
       });
+      unawaited(restorePortraits());
     } catch (_) {
       if (mounted && token == generation) {
         setState(() {
@@ -119,6 +122,34 @@ class _DeskState extends State<FieldDesk> with WidgetsBindingObserver {
           failed = true;
         });
       }
+    }
+  }
+
+  Future<void> restorePortraits() async {
+    if (restoringPortraits) return;
+    restoringPortraits = true;
+    try {
+      while (mounted) {
+        final batch = await widget.book.missingPortraits(
+          widget.phone,
+          portraitCursor,
+        );
+        if (batch.isEmpty) {
+          portraitCursor = 0;
+          return;
+        }
+        for (final person in batch) {
+          if (!mounted) return;
+          portraitCursor = person.id;
+          final bytes = await picture(person);
+          if (bytes == null) return;
+          await widget.book.attach(widget.phone, person.id, bytes);
+        }
+      }
+    } catch (_) {
+      // La fila sin retrato sigue pendiente si se interrumpe la lectura o la escritura.
+    } finally {
+      restoringPortraits = false;
     }
   }
 
@@ -134,6 +165,7 @@ class _DeskState extends State<FieldDesk> with WidgetsBindingObserver {
         await widget.book.attach(widget.phone, person.id, bytes);
         return bytes;
       } catch (_) {
+        images.remove(person.id);
         return null;
       }
     });

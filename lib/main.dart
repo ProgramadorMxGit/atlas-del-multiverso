@@ -72,7 +72,7 @@ class _GateState extends State<Gate> {
         ),
       );
     }
-    return phone == null
+    final screen = phone == null
         ? Entry(
             onEnter: (number) async {
               await store!.enter(number);
@@ -88,5 +88,18 @@ class _GateState extends State<Gate> {
               if (mounted) setState(() => phone = null);
             },
           );
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(phone),
+      tween: Tween(begin: 0, end: 1),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      child: screen,
+      builder: (_, value, child) => Transform.translate(
+        offset: Offset(0, 8 * (1 - value)),
+        child: Opacity(opacity: 0.75 + 0.25 * value, child: child),
+      ),
+    );
   }
 }
