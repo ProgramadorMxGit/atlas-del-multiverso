@@ -38,12 +38,14 @@ La actualización desde la versión 1.0 reúne los guardados de los cuadernos qu
 
 El emblema se anima mientras SQLite recupera la sesión. La cuadrícula carga las tarjetas conforme entran en pantalla. En la primera presentación, las seis primeras aparecen una tras otra. La secuencia termina al desplazar la cuadrícula. Al abrir una ficha, el retrato acompaña la transición. Con el ajuste de movimiento reducido, las tarjetas aparecen directamente.
 
-## Código y pruebas
+## Estructura del código
 
-- `lib/atlas_data.dart` reúne el cliente HTTP, el modelo de personaje y las operaciones de SQLite. `lib/main.dart` recupera la sesión.
-- `lib/entry.dart`, `lib/field_desk.dart` y `lib/details.dart` contienen las pantallas de acceso, catálogo y ficha. La cuadrícula está en `lib/catalog.dart` y el arranque en `lib/motion.dart`, con el emblema de `lib/appearance.dart`.
+- **`lib/domain/`** contiene los modelos de personaje y cuaderno, la validación del número y los contratos de los repositorios.
+- **`lib/application/`** coordina la sesión, la búsqueda, los guardados y la cola de retratos. Los controladores dependen de los contratos del dominio.
+- **`lib/data/`** conecta esos contratos con la API y SQLite. También convierte el JSON a modelos y recibe los avisos de conexión de Android.
+- **`lib/presentation/`** reúne las pantallas, la navegación y las animaciones. `lib/main.dart` conecta los controladores con las implementaciones de datos.
 
-Las pruebas de SQLite revisan la persistencia al reabrir la base, la separación de cuadernos y la migración de duplicados. Las de interfaz cubren el acceso, el guardado sin retrato, el arranque, la entrada de las tarjetas y el reintento al volver la conexión.
+Las pruebas de SQLite verifican que se puedan seguir leyendo fichas de versiones anteriores y que cada investigador conserve su colección. Las de interfaz cubren el acceso, el guardado sin retrato, el arranque, la entrada de las tarjetas y el reintento de una página al recuperar la conexión. La cola de retratos se prueba por separado con una descarga fallida y su reintento.
 
 ## Referencias
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'appearance.dart';
 import 'motion.dart';
-import 'atlas_data.dart';
+import '../domain/mexico_phone.dart';
 
 class Entry extends StatefulWidget {
   const Entry({super.key, required this.onEnter});

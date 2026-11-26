@@ -27,3 +27,9 @@ El aviso de conexión de Android permite reintentar la página que falló y reto
 ## Validación de la versión 1.1
 
 Pasaron las 16 pruebas automatizadas y el análisis de Flutter terminó sin incidencias. En Flutter se revisaron fotogramas del arranque y del catálogo a 390 × 844, además de una vista de 320 px con el texto al doble. La revisión fue visual. Los tiempos de arranque y de fotograma en Android físico quedaron fuera de la medición.
+
+## Versión 1.2
+
+La búsqueda, los guardados y la recuperación de retratos salieron de las pantallas. Los controladores consultan repositorios y devuelven modelos tipados. El cliente HTTP y SQLite quedan detrás de esos contratos. La base conserva el mismo esquema y el formato de las fichas guardadas.
+
+Pasaron las 19 pruebas automatizadas. La serie incluye la lectura de una ficha guardada con el formato anterior, el cambio de investigador y el reintento de un retrato tras fallar la descarga. El análisis de Flutter terminó sin incidencias.

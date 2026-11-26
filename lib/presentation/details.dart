@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'appearance.dart';
-import 'atlas_data.dart';
+import '../domain/specimen.dart';
+import 'specimen_status.dart';
 import 'motion.dart';
 
 class Portrait extends StatelessWidget {
@@ -153,13 +154,12 @@ class _DetailsState extends State<Details> {
                   child: Column(
                     children: [
                       for (final field in {
-                        'Estado': p.status,
+                        'Estado': p.status.label,
                         'Especie': p.species,
-                        'Origen': p.data['origin']['name'],
-                        'Ubicación': p.data['location']['name'],
-                        'Género': p.data['gender'],
-                        if ((p.data['type'] as String).isNotEmpty)
-                          'Tipo': p.data['type'],
+                        'Origen': p.origin,
+                        'Ubicación': p.location,
+                        'Género': p.gender,
+                        if (p.type.isNotEmpty) 'Tipo': p.type,
                       }.entries)
                         ListTile(
                           contentPadding: EdgeInsets.zero,

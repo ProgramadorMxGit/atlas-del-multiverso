@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:atlas/atlas_data.dart';
+import 'package:atlas/data/atlas_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

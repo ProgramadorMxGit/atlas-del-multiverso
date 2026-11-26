@@ -1,29 +1,31 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:atlas/atlas_data.dart';
-import 'package:atlas/entry.dart';
-import 'package:atlas/catalog.dart';
-import 'package:atlas/details.dart';
-import 'package:atlas/field_desk.dart';
-import 'package:atlas/main.dart';
-import 'package:atlas/motion.dart';
+import 'package:atlas/application/desk_controller.dart';
+import 'package:atlas/application/session_controller.dart';
+import 'package:atlas/domain/catalog_repository.dart';
+import 'package:atlas/domain/notebook_repository.dart';
+import 'package:atlas/domain/specimen.dart';
+import 'package:atlas/presentation/entry.dart';
+import 'package:atlas/presentation/catalog.dart';
+import 'package:atlas/presentation/details.dart';
+import 'package:atlas/presentation/field_desk.dart';
+import 'package:atlas/presentation/gate.dart';
+import 'package:atlas/presentation/motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Specimen record(int id, String name) => Specimen({
-  'id': id,
-  'name': name,
-  'image': '',
-  'species': 'Human',
-  'status': 'Alive',
-  'gender': 'Male',
-  'type': '',
-  'location': {'name': 'Tierra'},
-  'origin': {'name': 'Tierra'},
-  'episode': [],
-});
+Specimen record(int id, String name) => Specimen(
+  id: id,
+  name: name,
+  species: 'Human',
+  status: SpecimenStatus.alive,
+  gender: 'Male',
+  origin: 'Tierra',
+  location: 'Tierra',
+);
 
-class MemoryBook extends Fake implements Notebook {
+class MemoryBook extends Fake implements NotebookRepository {
+  String? activePhone;
   final kept = <Specimen>[];
   final attached = <(String, int)>[];
   @override
@@ -32,13 +34,15 @@ class MemoryBook extends Fake implements Notebook {
   }
 
   @override
-  Future<String?> active() async => null;
+  Future<String?> active() async => activePhone;
+
   @override
-  Future<Map<String, Object?>> state(String phone) async => {
-    'tab': 0,
-    'query': '',
-    'last_detail': null,
-  };
+  Future<void> enter(String phone) async => activePhone = phone;
+
+  @override
+  Future<void> leave() async => activePhone = null;
+  @override
+  Future<Workspace> workspace(String phone) async => const Workspace();
   @override
   Future<List<Specimen>> saved(String phone) async => [...kept];
   @override
@@ -52,18 +56,16 @@ class MemoryBook extends Fake implements Notebook {
   }
 
   @override
-  Future<void> remember(String phone, int tab, String query) async {}
+  Future<void> remember(String phone, DeskTab tab, String query) async {}
   @override
   Future<void> markDetail(String phone, Specimen? person) async {}
 }
 
-typedef Batch = ({List<Specimen> items, bool more});
-
-class LocalApi extends Fake implements AtlasApi {
-  final calls = <(String, int, Completer<Batch>)>[];
+class LocalApi extends Fake implements CatalogRepository {
+  final calls = <(String, int, Completer<CatalogPage>)>[];
   @override
-  Future<Batch> search(String name, int page) {
-    final done = Completer<Batch>();
+  Future<CatalogPage> search(String name, int page) {
+    final done = Completer<CatalogPage>();
     calls.add((name, page, done));
     return done.future;
   }
@@ -86,19 +88,25 @@ void main() {
     testWidgets(
       'Arranque frío y reanudación con movimiento reducido $reduced',
       (tester) async {
-        final book = Completer<Notebook>();
+        final book = Completer<SessionController>();
         await tester.pumpWidget(
           MaterialApp(
             home: MediaQuery(
               data: MediaQueryData(disableAnimations: reduced),
-              child: Gate(openBook: () => book.future),
+              child: Gate(openSession: () => book.future),
             ),
           ),
         );
         expect(find.byType(LaunchCover), findsOneWidget);
         final launchState = tester.state(find.byType(LaunchCover));
         await tester.pump(const Duration(milliseconds: 450));
-        book.complete(MemoryBook());
+        book.complete(
+          SessionController(
+            book: MemoryBook(),
+            createCatalog: LocalApi.new,
+            connectivity: () => const Stream.empty(),
+          ),
+        );
         await tester.pump();
         if (!reduced) {
           expect(find.byType(Entry), findsNothing);
@@ -124,6 +132,43 @@ void main() {
     );
   }
 
+  testWidgets('El acceso y el cambio de investigador usan la misma sesión', (
+    tester,
+  ) async {
+    final book = MemoryBook();
+    final api = LocalApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Gate(
+            openSession: () async => SessionController(
+              book: book,
+              createCatalog: () => api,
+              connectivity: () => const Stream.empty(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '+52 833 123 4567');
+    await tester.tap(find.text('Abrir cuaderno'));
+    await tester.pump();
+    await tester.pump();
+    api.calls.single.$3.complete((items: <Specimen>[], more: false));
+    await tester.pumpAndSettle();
+    expect(book.activePhone, '528331234567');
+    expect(find.byType(FieldDesk), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Cambiar investigador'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cambiar'));
+    await tester.pumpAndSettle();
+    expect(book.activePhone, isNull);
+    expect(find.byType(Entry), findsOneWidget);
+  });
+
   testWidgets(
     'Las tarjetas entran en orden y un doble toque abre una sola ficha',
     (tester) async {
@@ -135,11 +180,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: FieldDesk(
-            book: MemoryBook(),
-            phone: '528338498692',
             onLeave: () async {},
-            createApi: () => api,
-            networkEvents: const Stream.empty(),
+            createDesk: () => DeskController(
+              book: MemoryBook(),
+              phone: '528338498692',
+              catalog: api,
+              connectivity: const Stream.empty(),
+            ),
           ),
         ),
       );
@@ -178,11 +225,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: FieldDesk(
-            book: book,
-            phone: '528338498692',
             onLeave: () async {},
-            createApi: () => api,
-            networkEvents: network.stream,
+            createDesk: () => DeskController(
+              book: book,
+              phone: '528338498692',
+              catalog: api,
+              connectivity: network.stream,
+            ),
           ),
         ),
       );
@@ -236,11 +285,13 @@ void main() {
             disableAnimations: true,
           ),
           child: FieldDesk(
-            book: MemoryBook(),
-            phone: '528338498692',
             onLeave: () async {},
-            createApi: () => api,
-            networkEvents: const Stream.empty(),
+            createDesk: () => DeskController(
+              book: MemoryBook(),
+              phone: '528338498692',
+              catalog: api,
+              connectivity: const Stream.empty(),
+            ),
           ),
         ),
       ),
@@ -273,11 +324,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: FieldDesk(
-          book: MemoryBook(),
-          phone: '528338498692',
           onLeave: () async {},
-          createApi: () => api,
-          networkEvents: const Stream.empty(),
+          createDesk: () => DeskController(
+            book: MemoryBook(),
+            phone: '528338498692',
+            catalog: api,
+            connectivity: const Stream.empty(),
+          ),
         ),
       ),
     );
@@ -309,11 +362,13 @@ void main() {
           MaterialApp(
             home: FieldDesk(
               key: ValueKey(phone),
-              book: book,
-              phone: phone,
               onLeave: () async {},
-              createApi: () => source,
-              networkEvents: const Stream.empty(),
+              createDesk: () => DeskController(
+                book: book,
+                phone: phone,
+                catalog: source,
+                connectivity: const Stream.empty(),
+              ),
             ),
           );
       await tester.pumpWidget(desk(first, '528331234567', api));

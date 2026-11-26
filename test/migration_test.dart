@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:atlas/atlas_data.dart';
+import 'package:atlas/data/sqlite_notebook.dart';
+import 'package:atlas/domain/mexico_phone.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -42,7 +44,10 @@ void main() {
       final file = '${dir.path}/atlas.sqlite';
       var db = await databaseFactoryFfi.openDatabase(
         file,
-        options: OpenDatabaseOptions(version: 1, onCreate: Notebook.schema),
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: SqliteNotebook.schema,
+        ),
       );
       addTearDown(() async {
         await db.close();
@@ -55,40 +60,49 @@ void main() {
         await db.insert('workspace', {'phone': id, 'query': id});
       }
       await db.insert('session', {'phone': active, 'slot': 1});
-      var book = Notebook(db);
+      Future<void> legacySave(
+        String phone,
+        int id,
+        String name,
+        Uint8List? image,
+      ) async {
+        await db.insert('saved', {
+          'phone': phone,
+          'id': id,
+          'payload': jsonEncode({'id': id, 'name': name}),
+          'portrait': image,
+        });
+      }
+
       for (final id in [1, 2]) {
-        await book.keep(
-          national,
-          Specimen({'id': id, 'name': 'N$id'}),
-          Uint8List.fromList([id]),
-        );
+        await legacySave(national, id, 'N$id', Uint8List.fromList([id]));
       }
       for (final id in [2, 3]) {
-        await book.keep(key, Specimen({'id': id, 'name': 'I$id'}), null);
+        await legacySave(key, id, 'I$id', null);
       }
-      await book.keep(other, const Specimen({'id': 9, 'name': 'Otro'}), null);
+      await legacySave(other, 9, 'Otro', null);
       await db.close();
       db = await databaseFactoryFfi.openDatabase(
         file,
         options: OpenDatabaseOptions(
           version: 2,
-          onCreate: Notebook.schema,
-          onUpgrade: Notebook.upgrade,
+          onCreate: SqliteNotebook.schema,
+          onUpgrade: SqliteNotebook.upgrade,
         ),
       );
-      book = Notebook(db);
+      final book = SqliteNotebook(db);
       expect(await db.getVersion(), 2);
       expect(await book.active(), active == '12345678' ? null : key);
       expect(
-        (await book.state(key))['query'],
+        (await book.workspace(key)).query,
         active == national ? national : key,
       );
       expect((await book.saved(key)).map((p) => p.id).toSet(), {1, 2, 3});
       expect(await book.photo(key, 2), [2]);
       expect(await book.saved(national), isEmpty);
       expect((await book.saved(other)).single.id, 9);
-      expect((await book.state('12345678'))['query'], '12345678');
-      await book.enter(national);
+      expect((await book.workspace('12345678')).query, '12345678');
+      await book.enter(key);
       expect(await book.active(), key);
     });
   }

@@ -1,6 +1,7 @@
-import 'package:atlas/atlas_data.dart';
-import 'package:atlas/entry.dart';
-import 'package:atlas/details.dart';
+import 'package:atlas/domain/mexico_phone.dart';
+import 'package:atlas/domain/specimen.dart';
+import 'package:atlas/presentation/entry.dart';
+import 'package:atlas/presentation/details.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,17 +35,16 @@ void main() {
   });
   testWidgets('Guarda una ficha aunque falte su retrato', (tester) async {
     bool? value;
-    const person = Specimen({
-      'id': 1,
-      'name': 'Rick Sánchez',
-      'species': 'Human',
-      'status': 'Alive',
-      'type': '',
-      'gender': 'Male',
-      'origin': {'name': 'Earth'},
-      'location': {'name': 'Citadel'},
-      'episode': ['https://example.org/episode/1'],
-    });
+    const person = Specimen(
+      id: 1,
+      name: 'Rick Sánchez',
+      species: 'Human',
+      status: SpecimenStatus.alive,
+      gender: 'Male',
+      origin: 'Earth',
+      location: 'Citadel',
+      episodeReferences: ['https://example.org/episode/1'],
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Details(

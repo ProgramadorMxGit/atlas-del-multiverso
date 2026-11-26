@@ -1,91 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:sqflite/sqflite.dart';
 
-import 'mexico_phone.dart';
-export 'mexico_phone.dart' show phoneKey;
+import '../domain/mexico_phone.dart';
+import '../domain/notebook_repository.dart';
+import '../domain/specimen.dart';
+import 'specimen_record.dart';
 
-class Specimen {
-  const Specimen(this.data);
-  final Map<String, dynamic> data;
-  int get id => data['id'] as int;
-  String get name => data['name'] as String;
-  String get species => data['species'] as String;
-  String get status => switch (data['status']) {
-    'Alive' => 'Con vida',
-    'Dead' => 'Sin vida',
-    _ => 'Desconocido',
-  };
-  String get image => data['image'] as String;
-  List<String> get episodes => (data['episode'] as List)
-      .map((e) => e.toString().split('/').last)
-      .toList();
-}
+class SqliteNotebook implements NotebookRepository {
+  SqliteNotebook(this._db);
+  final Database _db;
 
-class AtlasApi {
-  AtlasApi({Uri? endpoint})
-    : endpoint =
-          endpoint ?? Uri.https('rickandmortyapi.com', '/api/character/');
-  final Uri endpoint;
-  final _client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-
-  void close() => _client.close(force: true);
-
-  Future<Uint8List> _get(Uri uri) async {
-    final request = await _client
-        .getUrl(uri)
-        .timeout(const Duration(seconds: 6));
-    try {
-      final response = await request.close().timeout(
-        const Duration(seconds: 8),
-      );
-      if (response.statusCode != 200) {
-        await response.drain<void>().timeout(const Duration(seconds: 3));
-        throw HttpException('${response.statusCode}', uri: uri);
-      }
-      final bytes = BytesBuilder(copy: false);
-      await response.forEach(bytes.add).timeout(const Duration(seconds: 10));
-      return bytes.takeBytes();
-    } catch (_) {
-      request.abort();
-      rethrow;
-    }
-  }
-
-  Future<({List<Specimen> items, bool more})> search(
-    String name,
-    int page,
-  ) async {
-    final uri = endpoint.replace(
-      queryParameters: {
-        if (name.isNotEmpty) 'name': name,
-        'page': page.toString(),
-      },
-    );
-    try {
-      final json = jsonDecode(utf8.decode(await _get(uri)));
-      return (
-        items: (json['results'] as List).map((v) => Specimen(v)).toList(),
-        more: json['info']['next'] != null,
-      );
-    } on HttpException catch (e) {
-      if (e.message == '404') return (items: <Specimen>[], more: false);
-      rethrow;
-    }
-  }
-
-  Future<Uint8List> portrait(Specimen person) => _get(Uri.parse(person.image));
-}
-
-class Notebook {
-  Notebook(this.db);
-  final Database db;
-
-  static Future<Notebook> open() async {
+  static Future<SqliteNotebook> open() async {
     final path = '${await getDatabasesPath()}/atlas.sqlite';
-    return Notebook(
+    return SqliteNotebook(
       await openDatabase(
         path,
         version: 2,
@@ -147,14 +76,14 @@ class Notebook {
     }
   }
 
+  @override
   Future<String?> active() async {
-    final rows = await db.query('session');
+    final rows = await _db.query('session');
     return rows.isEmpty ? null : rows.first['phone'] as String;
   }
 
-  Future<void> enter(String input) => db.transaction((txn) async {
-    final phone = phoneKey(input);
-    if (phone == null) throw const FormatException("Celular mexicano inválido");
+  @override
+  Future<void> enter(String phone) => _db.transaction((txn) async {
     await txn.insert('workspace', {
       'phone': phone,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -164,43 +93,67 @@ class Notebook {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   });
 
+  @override
   Future<void> markDetail(String phone, Specimen? person) async {
-    await db.update(
+    await _db.update(
       'workspace',
-      {'last_detail': person == null ? null : jsonEncode(person.data)},
+      {
+        'last_detail': person == null
+            ? null
+            : jsonEncode(SpecimenRecord.encode(person)),
+      },
       where: 'phone=?',
       whereArgs: [phone],
     );
   }
 
+  @override
   Future<void> leave() async {
-    await db.delete('session');
+    await _db.delete('session');
   }
 
-  Future<Map<String, Object?>> state(String phone) async => (await db.query(
-    'workspace',
-    where: 'phone=?',
-    whereArgs: [phone],
-  )).single;
-  Future<void> remember(String phone, int tab, String query) async {
-    await db.update(
+  @override
+  Future<Workspace> workspace(String phone) async {
+    final row = (await _db.query(
       'workspace',
-      {'tab': tab, 'query': query},
+      where: 'phone=?',
+      whereArgs: [phone],
+    )).single;
+    final detail = row['last_detail'] as String?;
+    return Workspace(
+      tab: row['tab'] == 1 ? DeskTab.saved : DeskTab.explore,
+      query: row['query'] as String? ?? '',
+      lastDetail: detail == null
+          ? null
+          : SpecimenRecord.decode(jsonDecode(detail)),
+    );
+  }
+
+  @override
+  Future<void> remember(String phone, DeskTab tab, String query) async {
+    await _db.update(
+      'workspace',
+      {'tab': tab == DeskTab.saved ? 1 : 0, 'query': query},
       where: 'phone=?',
       whereArgs: [phone],
     );
   }
 
-  Future<List<Specimen>> saved(String phone) async => (await db.query(
-    'saved',
-    columns: ['payload'],
-    where: 'phone=?',
-    whereArgs: [phone],
-    orderBy: 'rowid DESC',
-  )).map((r) => Specimen(jsonDecode(r['payload'] as String))).toList();
+  @override
+  Future<List<Specimen>> saved(String phone) async =>
+      (await _db.query(
+            'saved',
+            columns: ['payload'],
+            where: 'phone=?',
+            whereArgs: [phone],
+            orderBy: 'rowid DESC',
+          ))
+          .map((r) => SpecimenRecord.decode(jsonDecode(r['payload'] as String)))
+          .toList();
 
+  @override
   Future<List<Specimen>> missingPortraits(String phone, int afterId) async {
-    final rows = await db.query(
+    final rows = await _db.query(
       'saved',
       columns: ['payload'],
       where: 'phone=? AND portrait IS NULL AND id>?',
@@ -209,25 +162,34 @@ class Notebook {
       limit: 8,
     );
     return rows
-        .map((row) => Specimen(jsonDecode(row['payload'] as String)))
+        .map(
+          (row) => SpecimenRecord.decode(jsonDecode(row['payload'] as String)),
+        )
         .toList();
   }
 
+  @override
   Future<void> keep(String phone, Specimen person, Uint8List? image) async {
-    await db.insert('saved', {
+    await _db.insert('saved', {
       'phone': phone,
       'id': person.id,
-      'payload': jsonEncode(person.data),
+      'payload': jsonEncode(SpecimenRecord.encode(person)),
       'portrait': image,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
+  @override
   Future<void> forget(String phone, int id) async {
-    await db.delete('saved', where: 'phone=? AND id=?', whereArgs: [phone, id]);
+    await _db.delete(
+      'saved',
+      where: 'phone=? AND id=?',
+      whereArgs: [phone, id],
+    );
   }
 
+  @override
   Future<Uint8List?> photo(String phone, int id) async {
-    final rows = await db.query(
+    final rows = await _db.query(
       'saved',
       columns: ['portrait'],
       where: 'phone=? AND id=?',
@@ -236,8 +198,9 @@ class Notebook {
     return rows.isEmpty ? null : rows.first['portrait'] as Uint8List?;
   }
 
+  @override
   Future<void> attach(String phone, int id, Uint8List bytes) async {
-    await db.update(
+    await _db.update(
       'saved',
       {'portrait': bytes},
       where: 'phone=? AND id=? AND portrait IS NULL',

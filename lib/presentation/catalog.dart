@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'appearance.dart';
-import 'atlas_data.dart';
+import '../domain/specimen.dart';
+import 'specimen_status.dart';
 import 'details.dart';
 
 class CatalogTiles extends StatefulWidget {
@@ -125,16 +126,16 @@ class _SpecimenCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const badge = Color(0xed15242d);
-    final dot = switch (person.data['status']) {
-      'Alive' => mint,
-      'Dead' => const Color(0xffe4aa93),
+    final dot = switch (person.status) {
+      SpecimenStatus.alive => mint,
+      SpecimenStatus.dead => const Color(0xffe4aa93),
       _ => muted,
     };
     return Semantics(
       button: true,
       onTap: onTap,
       label:
-          '${person.name}, ${person.species}, ${person.status}${kept ? ', guardado' : ''}',
+          '${person.name}, ${person.species}, ${person.status.label}${kept ? ', guardado' : ''}',
       child: ExcludeSemantics(
         child: Material(
           color: panel,
@@ -224,7 +225,7 @@ class _SpecimenCard extends StatelessWidget {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '${person.species} · ${person.status}',
+                                '${person.species} · ${person.status.label}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
